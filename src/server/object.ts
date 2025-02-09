@@ -1,5 +1,3 @@
-import { EulerOrder } from "three";
-
 export interface Player {
   id: string;
   position: Position;
@@ -13,10 +11,8 @@ export interface Position {
   z: number;
 }
 
-
 export interface Rotation {
   x: number;
   y: number;
   z: number;
-  order: EulerOrder;
 }

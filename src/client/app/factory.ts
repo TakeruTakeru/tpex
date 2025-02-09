@@ -1,29 +1,39 @@
 import * as THREE from "three";
 import { GUI } from "dat.gui";
 import { GameManager } from "./model/game";
+import { InputHandler } from "./input";
 
 export class GameMangerFactoryImpl {
   constructor(
     sceneFactoryImpl: SceneFactoryImpl,
     cameraFactoryImpl: CameraFactoryImpl,
+    input: InputHandler,
     renderer: THREE.WebGLRenderer,
     socket: SocketIOClient.Socket
   ) {
     this.sceneFactoryImpl = sceneFactoryImpl;
     this.cameraFactoryImpl = cameraFactoryImpl;
+    this.input = input;
     this.renderer = renderer;
     this.socket = socket;
   }
 
   private sceneFactoryImpl: SceneFactoryImpl;
   private cameraFactoryImpl: CameraFactoryImpl;
+  private input: InputHandler;
   private renderer: THREE.WebGLRenderer;
   private socket: SocketIOClient.Socket;
 
   public create() {
     const scene = this.sceneFactoryImpl.create();
     const camera = this.cameraFactoryImpl.create();
-    return new GameManager(scene, camera, this.renderer, this.socket);
+    return new GameManager(
+      scene,
+      camera,
+      this.input,
+      this.renderer,
+      this.socket
+    );
   }
 }
 
@@ -34,14 +44,19 @@ export class SceneFactoryImpl {
 
     // ライト設定
     const ambientLight = new THREE.AmbientLight(0xffffff);
+    ambientLight.name = "ambientLight";
+    ambientLight.userData = { id: "ambientLight" };
     scene.add(ambientLight);
     const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
     directionalLight.position.set(1, 1, 1).normalize();
     scene.add(directionalLight);
 
     const floorGeometry = new THREE.PlaneGeometry(20, 20);
+    floorGeometry.userData = { id: "floor" };
+    floorGeometry.name = "floor";
     const floorMaterial = new THREE.MeshPhongMaterial({ color: 0x666666 });
     const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+    floor.userData = { id: "floor" };
     floor.rotation.x = -Math.PI / 2;
     scene.add(floor);
 
@@ -57,7 +72,7 @@ export class CameraFactoryImpl {
       0.1,
       1000
     );
-    camera.position.set(0, 1.6, 5);
+    camera.fov = 104;
     return camera;
   }
 }

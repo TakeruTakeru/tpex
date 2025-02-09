@@ -1,8 +1,8 @@
 import * as THREE from "three";
-import { Movement } from "./model/game";
+import { PlayerMoveMents } from "./model/player";
 
 export class InputHandler {
-  private movements: Record<Movement, boolean>;
+  private movements: PlayerMoveMents;
   private mouse: THREE.Vector2;
   private isLocked: boolean;
   private movementX: number;
@@ -14,7 +14,7 @@ export class InputHandler {
       backward: false,
       left: false,
       right: false,
-      jump: false,
+      sprint: false,
     };
     this.mouse = new THREE.Vector2();
     this.isLocked = false;
@@ -37,17 +37,14 @@ export class InputHandler {
     document.addEventListener("pointerlockchange", (event) => {
       this.isLocked = document.pointerLockElement === document.body;
     });
-    // ポインターロックイベント
   }
 
   // ====== <User gestures> ======
-  private _onMove: (
-    movements: Record<Movement, boolean>,
-    deltaTime: number
-  ) => void = () => {};
+  private _onMove: (movements: PlayerMoveMents, deltaTime: number) => void =
+    () => {};
 
   public onMove(
-    callback: (movements: Record<Movement, boolean>, deltaTime: number) => void
+    callback: (movements: PlayerMoveMents, deltaTime: number) => void
   ): this {
     this._onMove = callback;
     return this;
@@ -93,8 +90,8 @@ export class InputHandler {
       case "d":
         this.movements.right = true;
         break;
-      case " ":
-        this.movements.jump = true;
+      case "shift":
+        this.movements.sprint = true;
         break;
     }
   }
@@ -114,8 +111,8 @@ export class InputHandler {
       case "d":
         this.movements.right = false;
         break;
-      case " ":
-        this.movements.jump = false;
+      case "shift":
+        this.movements.sprint = false;
         break;
     }
   }
@@ -152,7 +149,7 @@ export class InputHandler {
 
   public sync(deltaTime: number) {
     // マウスによるカメラ回転
-    if (this.isLocked) {
+    if (this.movementX !== 0 || this.movementY !== 0) {
       this._onViewChange(this.movementX, this.movementY);
       this.movementX = 0;
       this.movementY = 0;

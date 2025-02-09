@@ -27,6 +27,7 @@
     "@types/socket.io": "^3.0.1",
     "@types/socket.io-client": "^1.4.36",
     "@types/three": "^0.172.0",
+    "cors": "^2.8.5",
     "dat.gui": "^0.7.9",
     "express": "^4.21.2",
     "socket.io": "^4.8.1",

@@ -1,11 +1,13 @@
 import * as THREE from "three";
-import { Model } from "./object";
+import { Moveable } from "./object";
+import { getModel } from "./loader";
 
-export class Player extends Model {
+export class Player implements Moveable {
   public id: string;
-  public mesh: THREE.Mesh;
-  public position: THREE.Vector3;
-  public rotation: THREE.Euler;
+  public model: THREE.Group;
+  private gunModel: THREE.Group; // 銃モデル用
+  private position: THREE.Vector3;
+  private nextVector: THREE.Vector3 = new THREE.Vector3();
 
   constructor(
     scene: THREE.Scene,
@@ -13,26 +15,58 @@ export class Player extends Model {
     position: THREE.Vector3,
     rotation: THREE.Euler
   ) {
-    super();
     this.id = id;
-    const geometry = new THREE.BoxGeometry(1, 2, 1);
-    const material = new THREE.MeshPhongMaterial({ color: 0x0000ff });
-    this.mesh = new THREE.Mesh(geometry, material);
     this.position = position;
-    this.rotation = rotation;
-    this.mesh.position.copy(position);
-    this.mesh.rotation.copy(rotation);
-    scene.add(this.mesh);
+
+    const player = getModel("dog");
+    this.model = player;
+    this.model.userData = { playerId: this.id };
+    console.log(this.model);
+    this.model.position.copy(position);
+    this.model.rotation.copy(rotation);
+    scene.add(this.model);
+
+    const gun = getModel("gun");
+    this.gunModel = gun;
+    this.gunModel.userData = { playerId: this.id };
+    this.model.add(this.gunModel); // **カメラの子要素に追加**
+    this.gunModel.position.set(0.2, -0.1, -0.3); // **右下に配置**
+    this.gunModel.rotation.set(0, 0, 0); // 角度調整
+  }
+
+  onHit(object: any): void {}
+
+  getPosition(): THREE.Vector3 {
+    return this.position;
+  }
+
+  getNextVector(): THREE.Vector3 {
+    return this.nextVector;
+  }
+
+  move(vector: THREE.Vector3): void {
+    this.position.copy(vector);
+    this.model.position.copy(this.position);
   }
 
   public update(position: THREE.Vector3, rotation: THREE.Euler) {
-    this.position.copy(position);
-    this.rotation.copy(rotation);
-    this.mesh.position.copy(position);
-    this.mesh.rotation.copy(rotation);
+    if (this.model) {
+      this.nextVector = position;
+      this.model.rotation.copy(rotation);
+    }
   }
 
   public destroy(scene: THREE.Scene) {
-    scene.remove(this.mesh);
+    if (this.model) {
+      scene.remove(this.model);
+    }
   }
 }
+
+export type PlayerMoveMents = {
+  forward: boolean;
+  backward: boolean;
+  left: boolean;
+  right: boolean;
+  sprint: boolean;
+};

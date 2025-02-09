@@ -9,11 +9,12 @@ export type SocketOnPlayerMoveEvent = {
 export type SocketOnPlayerShootEvent = {
   origin: Position;
   direction: Position;
-}
+  speed: number;
+};
 
 // Broadcast
 export type SocketBroadCastInitializeEvent = {
-  playerId: string;
+  player: Player;
   players: Player[];
 };
 
@@ -28,7 +29,8 @@ export type SocketBroadCastPlayerMoveEvent = {
 };
 
 export type SocketBroadCastPlayerShootEvent = {
-  id: string;
+  playerId: string;
   origin: Position;
   direction: Position;
+  speed: number;
 };
