@@ -4,7 +4,7 @@ import { Moveable } from "./object";
 import { getModel } from "./loader";
 import { Bullet } from "./bullet";
 
-export class FPSController implements Moveable {
+export class User implements Moveable {
   camera: THREE.Camera;
   sensitivity: number; // マウス感度
   speed: number; // 移動速度
@@ -13,7 +13,7 @@ export class FPSController implements Moveable {
   pitchLimit: number = (Math.PI / 180) * 60; // 上下80度
 
   baseObject: THREE.Object3D; // カメラに追従するオブジェクト（相対座標を持つためのもの）
-  hitbox: THREE.Mesh; // 当たり判定用
+  hitBox: THREE.Mesh; // 当たり判定用
   gunModel: THREE.Group; // 銃モデル用
 
   nextVector: THREE.Vector3 = new THREE.Vector3();
@@ -39,15 +39,15 @@ export class FPSController implements Moveable {
     scene.add(this.baseObject);
 
     // **当たり判定用の Box を追加**
-    const hitboxGeometry = new THREE.BoxGeometry(0.5, 1.8, 0.5); // 幅・高さ・奥行き
-    const hitboxMaterial = new THREE.MeshBasicMaterial({
+    const hitBoxGeometry = new THREE.BoxGeometry(0.5, 1.8, 0.5); // 幅・高さ・奥行き
+    const hitBoxMaterial = new THREE.MeshBasicMaterial({
       visible: false, // **透明にする**
     });
-    const hitbox = new THREE.Mesh(hitboxGeometry, hitboxMaterial);
-    hitbox.name = "fpsControllerHitbox"; // 名前をつける
-    hitbox.userData = { playerId: playerID, controller: this }; // 衝突時に識別するための情報
-    this.hitbox = hitbox;
-    this.baseObject.add(hitbox);
+    const hitBox = new THREE.Mesh(hitBoxGeometry, hitBoxMaterial);
+    hitBox.name = "userHitBox"; // 名前をつける
+    hitBox.userData = { playerId: playerID, controller: this }; // 衝突時に識別するための情報
+    this.hitBox = hitBox;
+    this.baseObject.add(hitBox);
 
     // **銃モデル**
     const gun = getModel("gun");

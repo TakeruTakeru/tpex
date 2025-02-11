@@ -13,7 +13,7 @@ import {
 import { Position, Rotation } from "../../../server/object";
 import { UI } from "./ui";
 import { InputHandler } from "../input";
-import { FPSController } from "./FpsController";
+import { User } from "./User";
 import { Moveable } from "./object";
 
 export class GameManager {
@@ -26,7 +26,7 @@ export class GameManager {
   private previousTime: number = 0;
 
   private playerId: string | undefined;
-  private fpsController: FPSController | undefined;
+  private user: User | undefined;
   private bullets: Bullet[] = [];
   private players: Map<string, Player> = new Map();
 
@@ -64,8 +64,8 @@ export class GameManager {
         new THREE.Vector3(0, 0, 0);
       const playerPos = position2vector(data.player.position);
       const targetPos = position2vector(target);
-      this.fpsController = new FPSController(this.scene, this.camera, playerId);
-      this.fpsController.setInitialPositionAndRotation(playerPos, targetPos);
+      this.user = new User(this.scene, this.camera, playerId);
+      this.user.setInitialPositionAndRotation(playerPos, targetPos);
 
       this.initializePlayers(
         data.players.filter((p) => p.id !== data.player.id)
@@ -145,19 +145,19 @@ export class GameManager {
 
   // 操作しているプレイヤーが動く
   handlePlayerMove = (movements: PlayerMoveMents, deltaTime: number) => {
-    this.fpsController?.handlePlayerMove(movements, deltaTime);
+    this.user?.handlePlayerMove(movements, deltaTime);
   };
 
   // 操作しているプレイヤーのカメラが動く
   handlePlayerViewChange = (movementX: number, movementY: number) => {
-    this.fpsController?.handleMouseMove(movementX, movementY);
+    this.user?.handleMouseMove(movementX, movementY);
   };
 
   handlePlayerShoot = () => {
-    if (this.fpsController === undefined) {
+    if (this.user === undefined) {
       return;
     }
-    const [bullet, origin, direction, speed] = this.fpsController.shoot();
+    const [bullet, origin, direction, speed] = this.user.shoot();
     this.scene.add(bullet.mesh);
     this.bullets.push(bullet);
     const data: SocketOnPlayerShootEvent = {
@@ -183,8 +183,8 @@ export class GameManager {
 
   animate = (currentTime: number) => {
     requestAnimationFrame((time) => this.animate(time));
-    const fpsController = this.fpsController;
-    if (fpsController === undefined) {
+    const user = this.user;
+    if (user === undefined) {
       return;
     }
 
@@ -200,7 +200,7 @@ export class GameManager {
         object.onHit({ type: "boundary", boundary });
         return;
       }
-      if (object instanceof Player || object instanceof FPSController) {
+      if (object instanceof Player || object instanceof User) {
         object.move(vector);
       }
 
@@ -208,7 +208,7 @@ export class GameManager {
       if (object instanceof Bullet) {
         const playerObjects = [
           ...[...this.players.values()].map((p) => p.model),
-          fpsController.hitbox,
+          user.hitBox,
         ];
         const raycaster = new THREE.Raycaster();
         const position = object.getPosition();
@@ -274,7 +274,7 @@ export class GameManager {
   };
 
   private getMoveable = (): Moveable[] => {
-    return [this.fpsController!, ...this.players.values(), ...this.bullets];
+    return [this.user!, ...this.players.values(), ...this.bullets];
   };
 }
 
