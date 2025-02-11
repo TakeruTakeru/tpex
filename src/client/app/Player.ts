@@ -1,6 +1,6 @@
 import * as THREE from "three";
-import { Moveable } from "./object";
-import { getModel } from "./loader";
+import { Moveable } from "./Moveable";
+import { getModel } from "./ModelLoader";
 
 export class Player implements Moveable {
   public id: string;

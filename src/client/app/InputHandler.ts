@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { PlayerMoveMents } from "./model/player";
+import { PlayerMoveMents } from "./Player";
 
 export class InputHandler {
   private movements: PlayerMoveMents;

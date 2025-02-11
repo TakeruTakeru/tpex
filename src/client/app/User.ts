@@ -1,8 +1,8 @@
 import * as THREE from "three";
-import { PlayerMoveMents } from "./player";
-import { Moveable } from "./object";
-import { getModel } from "./loader";
-import { Bullet } from "./bullet";
+import { PlayerMoveMents } from "./Player";
+import { Moveable } from "./Moveable";
+import { getModel } from "./ModelLoader";
+import { Bullet } from "./Bullet";
 
 export class User implements Moveable {
   camera: THREE.Camera;

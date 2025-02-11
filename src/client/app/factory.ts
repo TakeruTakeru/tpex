@@ -1,7 +1,8 @@
 import * as THREE from "three";
 import { GUI } from "dat.gui";
-import { GameManager } from "./model/game";
-import { InputHandler } from "./input";
+import { InputHandler } from "./InputHandler";
+import { GameManager } from "./GameManager";
+import { CONFIG, getBoundarySize } from "../../boundary";
 
 export class GameMangerFactoryImpl {
   constructor(
@@ -51,13 +52,13 @@ export class SceneFactoryImpl {
     directionalLight.position.set(1, 1, 1).normalize();
     scene.add(directionalLight);
 
-    const floorGeometry = new THREE.PlaneGeometry(20, 20);
+    const floorGeometry = new THREE.PlaneGeometry(...getBoundarySize());
     floorGeometry.userData = { id: "floor" };
     floorGeometry.name = "floor";
     const floorMaterial = new THREE.MeshPhongMaterial({ color: 0x666666 });
     const floor = new THREE.Mesh(floorGeometry, floorMaterial);
     floor.userData = { id: "floor" };
-    floor.rotation.x = -Math.PI / 2;
+    floor.rotation.x = -Math.PI / 2; // 床を垂直→水平に
     scene.add(floor);
 
     return scene;

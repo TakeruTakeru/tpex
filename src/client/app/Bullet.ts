@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { Moveable } from "./object";
+import { Moveable } from "./Moveable";
 
 export class Bullet implements Moveable {
   public mesh: THREE.Mesh;

@@ -1,12 +1,12 @@
 import * as THREE from "three";
-import { InputHandler } from "./app/input";
+import { InputHandler } from "./app/InputHandler";
 import io from "socket.io-client";
 import {
   CameraFactoryImpl,
   GameMangerFactoryImpl,
   SceneFactoryImpl,
 } from "./app/factory";
-import { loadBeforeGameStart } from "./app/model/loader";
+import { loadBeforeGameStart } from "./app/ModelLoader";
 
 main();
 

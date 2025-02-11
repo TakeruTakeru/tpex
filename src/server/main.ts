@@ -1,18 +1,19 @@
 import express from "express";
 import { createServer } from "http";
 import { Server } from "socket.io";
-import { Player } from "./object";
 import path from "path";
 import fs from "fs";
 import cors from "cors";
 import {
-  SocketBroadCastPlayerConnectEvent,
-  SocketBroadCastInitializeEvent,
-  SocketOnPlayerMoveEvent,
-  SocketBroadCastPlayerMoveEvent,
-  SocketOnPlayerShootEvent,
-  SocketBroadCastPlayerShootEvent,
-} from "./event";
+  EmitPlayerConnectEvent,
+  EmitInitializeEvent,
+  onPlayerMoveEvent,
+  EmitPlayerMoveEvent,
+  onPlayerShootEvent,
+  EmitPlayerShootEvent,
+  Player,
+} from "../types";
+import { getClampedPosition } from "../boundary";
 
 const app = express();
 
@@ -58,16 +59,12 @@ const io = new Server(server, {
   },
 });
 
-// Game state
 const players: { [id: string]: Player } = {};
 
 io.on("connection", (socket) => {
-  console.log(`Player connected: ${socket.id}`);
-
-  // Add new player to game state
   const player = (players[socket.id] = {
     id: socket.id,
-    position: { x: 0, y: 1, z: 5 },
+    position: getClampedPosition({ x: 0, y: 0, z: 0 }),
     rotation: { x: 0, y: 0, z: 0 },
     health: 100,
   });
@@ -77,42 +74,41 @@ io.on("connection", (socket) => {
     // 2人目以降のプレイヤーは前のプレイヤーの右隣に配置
     const lastPlayer =
       Object.values(players)[Object.values(players).length - 2];
-    player.position.x = lastPlayer.position.x + 1;
-    player.position.z = lastPlayer.position.z + 1;
+    const newPosition = getClampedPosition({
+      x: lastPlayer.position.x + 1,
+      y: lastPlayer.position.y,
+      z: lastPlayer.position.z + 1,
+    });
+    player.position = newPosition;
   }
 
-  // Send initial game state to new player
   socket.emit("init", {
     player,
     players: Object.values(players),
-  } as SocketBroadCastInitializeEvent);
+  } as EmitInitializeEvent);
 
-  // Broadcast new player to others
   socket.broadcast.emit("player-connected", {
     player,
-  } as SocketBroadCastPlayerConnectEvent);
+  } as EmitPlayerConnectEvent);
 
-  // Handle player movement updates
-  socket.on("player-move", (data: SocketOnPlayerMoveEvent) => {
+  socket.on("player-move", (data: onPlayerMoveEvent) => {
     if (players[socket.id]) {
       players[socket.id].position = data.position;
       players[socket.id].rotation = data.rotation;
       socket.broadcast.emit("player-moved", {
         id: socket.id,
         ...data,
-      } as SocketBroadCastPlayerMoveEvent);
+      } as EmitPlayerMoveEvent);
     }
   });
 
-  // Handle player shooting
-  socket.on("player-shot", (data: SocketOnPlayerShootEvent) => {
+  socket.on("player-shot", (data: onPlayerShootEvent) => {
     socket.broadcast.emit("player-shot", {
       playerId: socket.id,
       ...data,
-    } as SocketBroadCastPlayerShootEvent);
+    } as EmitPlayerShootEvent);
   });
 
-  // Handle player disconnect
   socket.on("disconnect", () => {
     console.log(`Player disconnected: ${socket.id}`);
     delete players[socket.id];

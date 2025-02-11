@@ -1,20 +1,22 @@
 import * as THREE from "three";
-import { Player, PlayerMoveMents } from "./player";
-import { Bullet } from "./bullet";
-import { DebugUIFactoryImpl } from "../factory";
+import { Player, PlayerMoveMents } from "./Player";
 import Stats from "stats.js";
-import {
-  SocketBroadCastInitializeEvent,
-  SocketBroadCastPlayerConnectEvent,
-  SocketBroadCastPlayerMoveEvent,
-  SocketBroadCastPlayerShootEvent,
-  SocketOnPlayerShootEvent,
-} from "../../../server/event";
-import { Position, Rotation } from "../../../server/object";
-import { UI } from "./ui";
-import { InputHandler } from "../input";
+import { UI } from "./UI";
+import { InputHandler } from "./InputHandler";
 import { User } from "./User";
-import { Moveable } from "./object";
+import { Moveable } from "./Moveable";
+import { Bullet } from "./Bullet";
+import { DebugUIFactoryImpl } from "./factory";
+import {
+  Position,
+  Rotation,
+  EmitInitializeEvent,
+  EmitPlayerConnectEvent,
+  EmitPlayerMoveEvent,
+  EmitPlayerShootEvent,
+  onPlayerShootEvent,
+} from "../../types";
+import { CONFIG, getClampedPosition } from "../../boundary";
 
 export class GameManager {
   private scene: THREE.Scene;
@@ -56,14 +58,14 @@ export class GameManager {
     document.body.appendChild(this.stats.dom);
 
     // サーバーからの初期データ受信
-    this.socket.on("init", (data: SocketBroadCastInitializeEvent) => {
+    this.socket.on("init", (data: EmitInitializeEvent) => {
       const playerId = data.player.id;
       this.playerId = playerId;
       const target =
-        data.players.filter((p) => p.id !== data.player.id)[0].position ||
-        new THREE.Vector3(0, 0, 0);
-      const playerPos = position2vector(data.player.position);
-      const targetPos = position2vector(target);
+        data.players.filter((p) => p.id !== data.player.id)[0]?.position ||
+        toVector(getClampedPosition({ x: 0, y: 0, z: 0 }));
+      const playerPos = toVector(data.player.position);
+      const targetPos = toVector(target);
       this.user = new User(this.scene, this.camera, playerId);
       this.user.setInitialPositionAndRotation(playerPos, targetPos);
 
@@ -78,38 +80,28 @@ export class GameManager {
     });
 
     // 他のプレイヤーの接続処理
-    this.socket.on(
-      "player-connected",
-      ({ player }: SocketBroadCastPlayerConnectEvent) => {
-        console.log("Player connected:", player);
-        this.addPlayer(
-          player.id,
-          position2vector(player.position),
-          rotation2Euler(player.rotation)
-        );
-      }
-    );
+    this.socket.on("player-connected", ({ player }: EmitPlayerConnectEvent) => {
+      console.log("Player connected:", player);
+      this.addPlayer(
+        player.id,
+        toVector(player.position),
+        toEuler(player.rotation)
+      );
+    });
 
     // 他のプレイヤーの移動処理
-    this.socket.on("player-moved", (data: SocketBroadCastPlayerMoveEvent) => {
+    this.socket.on("player-moved", (data: EmitPlayerMoveEvent) => {
       const player = this.players.get(data.id);
       if (player) {
-        player.update(
-          position2vector(data.position),
-          rotation2Euler(data.rotation)
-        );
+        player.update(toVector(data.position), toEuler(data.rotation));
       }
     });
 
     // 他のプレイヤーの射撃処理
     this.socket.on(
       "player-shot",
-      ({ origin, direction, speed }: SocketBroadCastPlayerShootEvent) => {
-        const bullet = new Bullet(
-          position2vector(origin),
-          position2vector(direction),
-          speed
-        );
+      ({ origin, direction, speed }: EmitPlayerShootEvent) => {
+        const bullet = new Bullet(toVector(origin), toVector(direction), speed);
         this.scene.add(bullet.mesh);
         this.bullets.push(bullet);
       }
@@ -160,7 +152,7 @@ export class GameManager {
     const [bullet, origin, direction, speed] = this.user.shoot();
     this.scene.add(bullet.mesh);
     this.bullets.push(bullet);
-    const data: SocketOnPlayerShootEvent = {
+    const data: onPlayerShootEvent = {
       origin,
       direction,
       speed,
@@ -278,15 +270,15 @@ export class GameManager {
   };
 }
 
-const position2vector = (position: Position) => {
+const toVector = (position: Position) => {
   return new THREE.Vector3(position.x, position.y, position.z);
 };
 
-const rotation2Euler = (rotation: Rotation) => {
+const toEuler = (rotation: Rotation) => {
   return new THREE.Euler(rotation.x, rotation.y, rotation.z, "XYZ");
 };
 
 const boundary = new THREE.Box3(
-  new THREE.Vector3(-10, 0, -10), // 最小値
-  new THREE.Vector3(10, 50, 10) // 最大値
+  toVector(CONFIG.boundary.min),
+  toVector(CONFIG.boundary.max)
 );
