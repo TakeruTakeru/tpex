@@ -5,13 +5,13 @@ import path from "path";
 import fs from "fs";
 import cors from "cors";
 import {
-  EmitPlayerConnectEvent,
-  EmitInitializeEvent,
-  onPlayerMoveEvent,
-  EmitPlayerMoveEvent,
-  onPlayerShootEvent,
-  EmitPlayerShootEvent,
+  PlayerConnectEvent,
+  InitializeEvent,
+  PlayerMoveEvent,
+  PlayerShootEvent,
   SerializedPlayer,
+  EVENTS,
+  PlayerShotEvent,
 } from "../types";
 import { getClampedPosition } from "../boundary";
 
@@ -61,7 +61,7 @@ const io = new Server(server, {
 
 const players: { [id: string]: SerializedPlayer } = {};
 
-io.on("connection", (socket) => {
+io.on("connect", (socket) => {
   const player = (players[socket.id] = {
     id: socket.id,
     position: getClampedPosition({ x: 0, y: 0.5, z: 0 }),
@@ -82,37 +82,42 @@ io.on("connection", (socket) => {
     player.position = newPosition;
   }
 
-  socket.emit("init", {
+  socket.emit(EVENTS.INIT, {
     player,
     players: Object.values(players),
-  } as EmitInitializeEvent);
+  } as InitializeEvent);
 
-  socket.broadcast.emit("player-connected", {
+  socket.broadcast.emit(EVENTS.PLAYER_CONNECT, {
     player,
-  } as EmitPlayerConnectEvent);
+  } as PlayerConnectEvent);
 
-  socket.on("player-move", (data: onPlayerMoveEvent) => {
+  socket.on(EVENTS.PLAYER_MOVE, (data: PlayerMoveEvent) => {
     if (players[socket.id]) {
       players[socket.id].position = data.user.position;
       players[socket.id].rotation = data.user.rotation;
-      socket.broadcast.emit("player-moved", {
+      socket.broadcast.emit(EVENTS.PLAYER_MOVE, {
         id: data.user.id,
         ...data,
-      } as EmitPlayerMoveEvent);
+      } as PlayerMoveEvent);
     }
   });
 
-  socket.on("player-shot", (data: onPlayerShootEvent) => {
-    socket.broadcast.emit("player-shot", {
-      playerId: socket.id,
+  socket.on(EVENTS.PLAYER_SHOOT, (data: PlayerShootEvent) => {
+    socket.broadcast.emit(EVENTS.PLAYER_SHOOT, {
       ...data,
-    } as EmitPlayerShootEvent);
+    } as PlayerShootEvent);
+  });
+
+  socket.on(EVENTS.PLAYER_UPDATE, (data: PlayerShotEvent) => {
+    socket.broadcast.emit(EVENTS.PLAYER_UPDATE, {
+      ...data,
+    } as PlayerShotEvent);
   });
 
   socket.on("disconnect", () => {
     console.log(`Player disconnected: ${socket.id}`);
     delete players[socket.id];
-    io.emit("player-disconnected", socket.id);
+    io.emit(EVENTS.PLAYER_DISCONNECT, socket.id);
   });
 });
 

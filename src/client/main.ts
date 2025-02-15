@@ -23,7 +23,6 @@ async function main() {
   ).create();
 
   gameManager.init();
-  gameManager.enableDebugUI();
 
   window.addEventListener("resize", () => {
     gameManager.onResize(window.innerWidth, window.innerHeight);

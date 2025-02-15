@@ -40,10 +40,11 @@ export class User implements Model, Moveable, Serializable<SerializedUser> {
 
     // **ベースオブジェクト（カメラの位置に追従する）**
     this.baseObject = new THREE.Object3D();
-    this.baseObject.name = "fpsControllerBaseObject";
+    this.baseObject.name = "userBaseObject";
 
     // **当たり判定用の Box を追加**
     const hitBoxGeometry = new THREE.BoxGeometry(0.5, 1.8, 0.5); // 幅・高さ・奥行き
+    hitBoxGeometry.name = "userHitBoxGeometry"; // 名前をつける
     const hitBoxMaterial = new THREE.MeshBasicMaterial({
       visible: false, // **透明にする**
     });
@@ -164,6 +165,11 @@ export class User implements Model, Moveable, Serializable<SerializedUser> {
     const bullet = new Bullet(this.camera.position, direction, speed, 10);
     this.bullets.push(bullet);
     return bullet;
+  }
+
+  shot(bullet: Bullet) {
+    const damage = bullet.getDamageValue();
+    this.health = Math.max(this.health - damage, 0);
   }
 
   isOwn = (bullet: Bullet) => {

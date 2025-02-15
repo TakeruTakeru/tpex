@@ -42,6 +42,10 @@ export class Bullet implements Model, Moveable, Serializable<SerializedBullet> {
     throw new Error("Method not implemented.");
   }
 
+  getDamageValue() {
+    return this.basicDamage;
+  }
+
   destroy(scene: THREE.Scene) {
     scene.remove(this.bulletMesh);
   }

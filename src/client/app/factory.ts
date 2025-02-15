@@ -1,8 +1,7 @@
 import * as THREE from "three";
-import { GUI } from "dat.gui";
 import { InputHandler } from "./InputHandler";
 import { GameManager } from "./GameManager";
-import { CONFIG, getBoundarySize } from "../../boundary";
+import { getBoundarySize } from "../../boundary";
 
 export class GameMangerFactoryImpl {
   constructor(
@@ -74,23 +73,5 @@ export class CameraFactoryImpl {
     );
     camera.fov = 104;
     return camera;
-  }
-}
-
-export class DebugUIFactoryImpl {
-  constructor(camera: THREE.Camera) {
-    this.camera = camera;
-  }
-
-  private camera: THREE.Camera;
-
-  public create() {
-    const gui = new GUI();
-    const cameraFolder = gui.addFolder("Camera");
-    cameraFolder.add(this.camera.position, "x", -10, 10);
-    cameraFolder.add(this.camera.position, "y", 0, 10);
-    cameraFolder.add(this.camera.position, "z", -10, 10);
-    cameraFolder.open();
-    return gui;
   }
 }

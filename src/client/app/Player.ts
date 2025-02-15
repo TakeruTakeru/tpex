@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { HitEvent, Model, Moveable } from "./Models";
 import { getModel } from "./ModelLoader";
 import { Bullet } from "./Bullet";
+import { SerializedPlayer } from "../../types";
 
 export class Player implements Model, Moveable {
   private id: string;
@@ -9,6 +10,7 @@ export class Player implements Model, Moveable {
   private gunModel: THREE.Group; // 銃モデル用
   private position: THREE.Vector3;
   private nextVector: THREE.Vector3 = new THREE.Vector3();
+  health: number = 100;
 
   bullets: Bullet[] = [];
 
@@ -55,12 +57,18 @@ export class Player implements Model, Moveable {
     this.model.position.copy(this.position);
   }
 
-  update(position: THREE.Vector3, rotation: THREE.Euler) {
+  updateHealth(player: SerializedPlayer) {
+    this.health = player.health;
+  }
+
+  updatePosition(position: THREE.Vector3, rotation: THREE.Euler) {
     if (this.model) {
       this.nextVector = position;
       this.model.rotation.copy(rotation);
     }
   }
+
+  // update()
 
   onHit(e: HitEvent): void {}
 

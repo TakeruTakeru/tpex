@@ -5,16 +5,16 @@ import { UI } from "./UI";
 import { InputHandler } from "./InputHandler";
 import { User } from "./User";
 import { Bullet } from "./Bullet";
-import { DebugUIFactoryImpl } from "./factory";
 import {
   SerializedPosition,
   SerializedRotation,
-  EmitInitializeEvent,
-  EmitPlayerConnectEvent,
-  EmitPlayerMoveEvent,
-  EmitPlayerShootEvent,
-  onPlayerShootEvent,
+  InitializeEvent,
+  PlayerConnectEvent,
+  PlayerMoveEvent,
+  PlayerShootEvent,
   SerializedPlayer,
+  EVENTS,
+  PlayerShotEvent,
 } from "../../types";
 import { CONFIG, getClampedPosition } from "../../boundary";
 
@@ -58,7 +58,7 @@ export class GameManager {
     document.body.appendChild(this.stats.dom);
 
     // サーバーからの初期データ受信
-    this.socket.on("init", (data: EmitInitializeEvent) => {
+    this.socket.on(EVENTS.INIT, (data: InitializeEvent) => {
       const playerId = data.player.id;
       this.playerId = playerId;
       const target =
@@ -81,7 +81,7 @@ export class GameManager {
     });
 
     // 他のプレイヤーの接続処理
-    this.socket.on("player-connected", ({ player }: EmitPlayerConnectEvent) => {
+    this.socket.on(EVENTS.PLAYER_CONNECT, ({ player }: PlayerConnectEvent) => {
       console.log("Player connected:", player);
       this.addPlayer(
         player.id,
@@ -91,10 +91,10 @@ export class GameManager {
     });
 
     // 他のプレイヤーの移動処理
-    this.socket.on("player-moved", (data: EmitPlayerMoveEvent) => {
+    this.socket.on(EVENTS.PLAYER_MOVE, (data: PlayerMoveEvent) => {
       const player = this.players.get(data.user.id);
       if (player) {
-        player.update(
+        player.updatePosition(
           toVector(data.user.position),
           toEuler(data.user.rotation)
         );
@@ -103,11 +103,11 @@ export class GameManager {
 
     // 他のプレイヤーの射撃処理
     this.socket.on(
-      "player-shot",
+      EVENTS.PLAYER_SHOOT,
       ({
         playerId,
         bullet: { origin, direction, speed, basicDamage },
-      }: EmitPlayerShootEvent) => {
+      }: PlayerShootEvent) => {
         const shotPlayer = this.getPlayer(playerId);
         if (shotPlayer === undefined) {
           return;
@@ -124,8 +124,17 @@ export class GameManager {
       }
     );
 
+    this.socket.on(EVENTS.PLAYER_UPDATE, (data: PlayerShotEvent) => {
+      const player = this.getPlayer(data.playerId);
+      if (player === undefined) {
+        return;
+      }
+      player.updateHealth(data.player);
+      console.log("Player updated:", data.player);
+    });
+
     // プレイヤーの切断処理
-    this.socket.on("player-disconnected", (playerId: string) => {
+    this.socket.on(EVENTS.PLAYER_DISCONNECT, (playerId: string) => {
       this.removePlayer(playerId);
     });
   };
@@ -170,10 +179,11 @@ export class GameManager {
     const bullet = this.user.shoot();
     this.scene.add(bullet.getObject3D());
     this.bullets.push(bullet);
-    const data: onPlayerShootEvent = {
+    const data: PlayerShootEvent = {
+      playerId: this.playerId!,
       bullet: bullet.toJSON(),
     };
-    this.socket.emit("player-shot", data);
+    this.socket.emit(EVENTS.PLAYER_SHOOT, data);
   };
 
   removePlayer = (id: string) => {
@@ -220,9 +230,10 @@ export class GameManager {
       // 銃弾の衝突判定
       if (object instanceof Bullet) {
         const bullet = object;
-        const players = [this.user!, ...this.players.values()]
-          .filter((p) => !p.isOwn(bullet))
-          .map((p) => p.getObject3D());
+        const targets = [user, ...this.players.values()].filter(
+          (p) => !p.isOwn(bullet)
+        );
+        const players = targets.map((p) => p.getObject3D());
         const raycaster = new THREE.Raycaster();
         const position = bullet.getPosition();
         raycaster.set(position, vector);
@@ -230,24 +241,28 @@ export class GameManager {
         if (intersects.length === 0) {
           bullet.move(vector);
         } else {
-          intersects
-            .map((e) => e.object.userData)
-            .find((userData) => userData.playerId !== this.playerId);
-          if (intersects.length > 0) {
-            bullet.onHit({
-              type: "intersects",
-              debugInfo: {
-                name: intersects.map((e) => e.object.name).join("-"),
-                intersects,
-              },
-            });
+          const hitObject = intersects[0].object;
+          console.log(hitObject.name, user.hitBox.name);
+          if (hitObject.name === user.hitBox.name) {
+            user.shot(bullet);
+            this.socket.emit(EVENTS.PLAYER_UPDATE, {
+              playerId: this.playerId,
+              player: user.toJSON(),
+            } as PlayerShotEvent);
           }
+          bullet.onHit({
+            type: "intersects",
+            debugInfo: {
+              name: intersects.map((e) => e.object.name).join("-"),
+              intersects,
+            },
+          });
         }
       }
     });
 
     // 操作しているプレイヤーの位置をサーバーに送信
-    this.socket.emit("player-move", { user: this.user!.toJSON() });
+    this.socket.emit(EVENTS.PLAYER_MOVE, { user: this.user!.toJSON() });
 
     // 弾丸の更新
     this.bullets = this.bullets.filter((bullet) => {
@@ -268,10 +283,6 @@ export class GameManager {
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(window.innerWidth, window.innerHeight);
-  };
-
-  enableDebugUI = () => {
-    new DebugUIFactoryImpl(this.camera).create();
   };
 
   private getMoveable = () => {
