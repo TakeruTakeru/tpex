@@ -1,4 +1,4 @@
-import { Position } from "./types";
+import { SerializedPosition } from "./types";
 
 export const CONFIG = {
   boundary: {
@@ -22,7 +22,9 @@ export const getBoundaryCenter = (): [x: number, z: number] => {
 };
 
 // 位置を範囲内に調整する
-export const getClampedPosition = (position: Position): Position => {
+export const getClampedPosition = (
+  position: SerializedPosition
+): SerializedPosition => {
   return {
     x: Math.max(
       CONFIG.boundary.min.x,

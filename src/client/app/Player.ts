@@ -1,30 +1,26 @@
 import * as THREE from "three";
-import { Moveable } from "./Moveable";
+import { HitEvent, Model, Moveable } from "./Models";
 import { getModel } from "./ModelLoader";
+import { Bullet } from "./Bullet";
 
-export class Player implements Moveable {
-  public id: string;
-  public model: THREE.Group;
+export class Player implements Model, Moveable {
+  private id: string;
+  private model: THREE.Group;
   private gunModel: THREE.Group; // 銃モデル用
   private position: THREE.Vector3;
   private nextVector: THREE.Vector3 = new THREE.Vector3();
 
-  constructor(
-    scene: THREE.Scene,
-    id: string,
-    position: THREE.Vector3,
-    rotation: THREE.Euler
-  ) {
+  bullets: Bullet[] = [];
+
+  constructor(id: string, position: THREE.Vector3, rotation: THREE.Euler) {
     this.id = id;
     this.position = position;
 
     const player = getModel("dog");
     this.model = player;
     this.model.userData = { playerId: this.id };
-    console.log(this.model);
     this.model.position.copy(position);
     this.model.rotation.copy(rotation);
-    scene.add(this.model);
 
     const gun = getModel("gun");
     this.gunModel = gun;
@@ -34,10 +30,20 @@ export class Player implements Moveable {
     this.gunModel.rotation.set(0, 0, 0); // 角度調整
   }
 
-  onHit(object: any): void {}
+  getObject3D(): THREE.Object3D {
+    return this.model;
+  }
 
   getPosition(): THREE.Vector3 {
     return this.position;
+  }
+
+  getRotation(): THREE.Euler {
+    return this.model.rotation;
+  }
+
+  destroy(scene: THREE.Scene) {
+    scene.remove(this.model);
   }
 
   getNextVector(): THREE.Vector3 {
@@ -49,18 +55,22 @@ export class Player implements Moveable {
     this.model.position.copy(this.position);
   }
 
-  public update(position: THREE.Vector3, rotation: THREE.Euler) {
+  update(position: THREE.Vector3, rotation: THREE.Euler) {
     if (this.model) {
       this.nextVector = position;
       this.model.rotation.copy(rotation);
     }
   }
 
-  public destroy(scene: THREE.Scene) {
-    if (this.model) {
-      scene.remove(this.model);
-    }
-  }
+  onHit(e: HitEvent): void {}
+
+  shot = (bullet: Bullet) => {
+    this.bullets.push(bullet);
+  };
+
+  isOwn = (bullet: Bullet) => {
+    return this.bullets.includes(bullet);
+  };
 }
 
 export type PlayerMoveMents = {

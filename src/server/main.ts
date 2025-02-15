@@ -11,7 +11,7 @@ import {
   EmitPlayerMoveEvent,
   onPlayerShootEvent,
   EmitPlayerShootEvent,
-  Player,
+  SerializedPlayer,
 } from "../types";
 import { getClampedPosition } from "../boundary";
 
@@ -59,12 +59,12 @@ const io = new Server(server, {
   },
 });
 
-const players: { [id: string]: Player } = {};
+const players: { [id: string]: SerializedPlayer } = {};
 
 io.on("connection", (socket) => {
   const player = (players[socket.id] = {
     id: socket.id,
-    position: getClampedPosition({ x: 0, y: 0, z: 0 }),
+    position: getClampedPosition({ x: 0, y: 0.5, z: 0 }),
     rotation: { x: 0, y: 0, z: 0 },
     health: 100,
   });
@@ -93,10 +93,10 @@ io.on("connection", (socket) => {
 
   socket.on("player-move", (data: onPlayerMoveEvent) => {
     if (players[socket.id]) {
-      players[socket.id].position = data.position;
-      players[socket.id].rotation = data.rotation;
+      players[socket.id].position = data.user.position;
+      players[socket.id].rotation = data.user.rotation;
       socket.broadcast.emit("player-moved", {
-        id: socket.id,
+        id: data.user.id,
         ...data,
       } as EmitPlayerMoveEvent);
     }

@@ -1,46 +1,66 @@
 import * as THREE from "three";
-import { Moveable } from "./Moveable";
+import { HitEvent, Model, Moveable, Serializable } from "./Models";
+import { SerializedBullet } from "../../types";
 
-export class Bullet implements Moveable {
-  public mesh: THREE.Mesh;
+export class Bullet implements Model, Moveable, Serializable<SerializedBullet> {
+  private bulletMesh: THREE.Mesh;
   private velocity: THREE.Vector3;
+  private direction: THREE.Vector3;
+  private speed: number;
+  private basicDamage: number;
   private lifespan: number;
   private nextVector: THREE.Vector3 = new THREE.Vector3();
 
   constructor(
     position: THREE.Vector3,
     direction: THREE.Vector3,
-    speed: number
+    speed: number,
+    basicDamage: number
   ) {
     const geometry = new THREE.SphereGeometry(0.1);
     const material = new THREE.MeshPhongMaterial({ color: 0xffff00 });
-    this.mesh = new THREE.Mesh(geometry, material);
-    this.mesh.name = "bullet";
-    this.mesh.position.copy(position);
+    this.bulletMesh = new THREE.Mesh(geometry, material);
+    this.bulletMesh.name = "bullet";
+    this.bulletMesh.position.copy(position);
 
+    this.direction = direction;
+    this.speed = speed;
+    this.basicDamage = basicDamage;
     this.velocity = direction.clone().multiplyScalar(speed);
     this.lifespan = 2;
   }
 
+  getObject3D(): THREE.Object3D {
+    return this.bulletMesh;
+  }
+
   getPosition(): THREE.Vector3 {
-    return this.mesh.position;
+    return this.bulletMesh.position;
+  }
+
+  getRotation(): THREE.Euler {
+    throw new Error("Method not implemented.");
+  }
+
+  destroy(scene: THREE.Scene) {
+    scene.remove(this.bulletMesh);
   }
 
   getNextVector(): THREE.Vector3 {
-    return this.mesh.position.clone().add(this.nextVector);
+    return this.bulletMesh.position.clone().add(this.nextVector);
   }
 
   move(vector: THREE.Vector3): void {
-    this.mesh.position.copy(vector);
+    this.bulletMesh.position.copy(vector);
   }
 
-  onHit(object: any): void {
-    console.log(object);
+  onHit(e: HitEvent): void {
+    console.log(e);
     // ヒットしたら消滅
     this.lifespan = 0;
   }
 
-  public update(deltaTime: number): boolean {
+  update(deltaTime: number): boolean {
     // 次の移動量を計算して保持
     this.nextVector.copy(this.velocity).multiplyScalar(deltaTime);
 
@@ -51,7 +71,12 @@ export class Bullet implements Moveable {
     return this.lifespan > 0;
   }
 
-  public destroy(scene: THREE.Scene) {
-    scene.remove(this.mesh);
+  toJSON(): SerializedBullet {
+    return {
+      origin: this.getPosition(),
+      direction: this.direction,
+      speed: this.speed,
+      basicDamage: this.basicDamage,
+    };
   }
 }

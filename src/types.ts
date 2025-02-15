@@ -1,53 +1,64 @@
 // Server -> Client
 export type onPlayerMoveEvent = {
-  position: Position;
-  rotation: Rotation;
+  user: SerializedUser;
 };
 
 export type onPlayerShootEvent = {
-  origin: Position;
-  direction: Position;
-  speed: number;
+  bullet: SerializedBullet;
 };
 
 // Client -> Server
 export type EmitInitializeEvent = {
-  player: Player;
-  players: Player[];
+  player: SerializedPlayer;
+  players: SerializedPlayer[];
 };
 
 export type EmitPlayerConnectEvent = {
-  player: Player;
+  player: SerializedPlayer;
 };
 
 export type EmitPlayerMoveEvent = {
-  id: string;
-  position: Position;
-  rotation: Rotation;
+  user: SerializedUser;
 };
 
 export type EmitPlayerShootEvent = {
   playerId: string;
-  origin: Position;
-  direction: Position;
-  speed: number;
+  bullet: SerializedBullet;
 };
 
-export type Player = {
+export type EmitPlayerShotEvent = {
+  byPlayerId: string;
+};
+
+export type SerializedUser = {
   id: string;
-  position: Position;
-  rotation: Rotation;
+  position: SerializedPosition;
+  rotation: SerializedRotation;
   health: number;
 };
 
-export type Position = {
+export type SerializedPlayer = {
+  id: string;
+  position: SerializedPosition;
+  rotation: SerializedRotation;
+  health: number;
+};
+
+export type SerializedPosition = {
   x: number;
   y: number;
   z: number;
 };
 
-export type Rotation = {
+export type SerializedRotation = {
   x: number;
   y: number;
   z: number;
+};
+
+export type SerializedBullet = {
+  origin: SerializedPosition;
+  direction: SerializedPosition;
+  speed: number;
+  basicDamage: number;
 };

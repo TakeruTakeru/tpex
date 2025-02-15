@@ -53,7 +53,6 @@ export class SceneFactoryImpl {
     scene.add(directionalLight);
 
     const floorGeometry = new THREE.PlaneGeometry(...getBoundarySize());
-    floorGeometry.userData = { id: "floor" };
     floorGeometry.name = "floor";
     const floorMaterial = new THREE.MeshPhongMaterial({ color: 0x666666 });
     const floor = new THREE.Mesh(floorGeometry, floorMaterial);

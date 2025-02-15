@@ -4,17 +4,17 @@ import Stats from "stats.js";
 import { UI } from "./UI";
 import { InputHandler } from "./InputHandler";
 import { User } from "./User";
-import { Moveable } from "./Moveable";
 import { Bullet } from "./Bullet";
 import { DebugUIFactoryImpl } from "./factory";
 import {
-  Position,
-  Rotation,
+  SerializedPosition,
+  SerializedRotation,
   EmitInitializeEvent,
   EmitPlayerConnectEvent,
   EmitPlayerMoveEvent,
   EmitPlayerShootEvent,
   onPlayerShootEvent,
+  SerializedPlayer,
 } from "../../types";
 import { CONFIG, getClampedPosition } from "../../boundary";
 
@@ -66,7 +66,8 @@ export class GameManager {
         toVector(getClampedPosition({ x: 0, y: 0, z: 0 }));
       const playerPos = toVector(data.player.position);
       const targetPos = toVector(target);
-      this.user = new User(this.scene, this.camera, playerId);
+      this.user = new User(this.camera, playerId);
+      this.scene.add(this.user.getObject3D());
       this.user.setInitialPositionAndRotation(playerPos, targetPos);
 
       this.initializePlayers(
@@ -91,18 +92,34 @@ export class GameManager {
 
     // 他のプレイヤーの移動処理
     this.socket.on("player-moved", (data: EmitPlayerMoveEvent) => {
-      const player = this.players.get(data.id);
+      const player = this.players.get(data.user.id);
       if (player) {
-        player.update(toVector(data.position), toEuler(data.rotation));
+        player.update(
+          toVector(data.user.position),
+          toEuler(data.user.rotation)
+        );
       }
     });
 
     // 他のプレイヤーの射撃処理
     this.socket.on(
       "player-shot",
-      ({ origin, direction, speed }: EmitPlayerShootEvent) => {
-        const bullet = new Bullet(toVector(origin), toVector(direction), speed);
-        this.scene.add(bullet.mesh);
+      ({
+        playerId,
+        bullet: { origin, direction, speed, basicDamage },
+      }: EmitPlayerShootEvent) => {
+        const shotPlayer = this.getPlayer(playerId);
+        if (shotPlayer === undefined) {
+          return;
+        }
+        const bullet = new Bullet(
+          toVector(origin),
+          toVector(direction),
+          speed,
+          basicDamage
+        );
+        shotPlayer.shot(bullet);
+        this.scene.add(bullet.getObject3D());
         this.bullets.push(bullet);
       }
     );
@@ -114,25 +131,26 @@ export class GameManager {
   };
 
   // マルチプレイヤー用メソッド
-  initializePlayers = (playersData: any[]) => {
-    playersData.forEach((playerData) => {
-      const position = new THREE.Vector3(
-        playerData.position.x,
-        playerData.position.y,
-        playerData.position.z
+  initializePlayers = (playersData: SerializedPlayer[]) => {
+    playersData.forEach(({ id, position, rotation }) => {
+      const positionVector = new THREE.Vector3(
+        position.x,
+        position.y,
+        position.z
       );
-      const rotation = new THREE.Euler(
-        playerData.rotation.x,
-        playerData.rotation.y,
-        playerData.rotation.z
-      );
-      this.addPlayer(playerData.id, position, rotation);
+      const rotationEuler = new THREE.Euler(rotation.x, rotation.y, rotation.z);
+      this.addPlayer(id, positionVector, rotationEuler);
     });
   };
 
   addPlayer = (id: string, position: THREE.Vector3, rotation: THREE.Euler) => {
-    const player = new Player(this.scene, id, position, rotation);
+    const player = new Player(id, position, rotation);
+    this.scene.add(player.getObject3D());
     this.players.set(id, player);
+  };
+
+  getPlayer = (id: string) => {
+    return this.players.get(id);
   };
 
   // 操作しているプレイヤーが動く
@@ -149,13 +167,11 @@ export class GameManager {
     if (this.user === undefined) {
       return;
     }
-    const [bullet, origin, direction, speed] = this.user.shoot();
-    this.scene.add(bullet.mesh);
+    const bullet = this.user.shoot();
+    this.scene.add(bullet.getObject3D());
     this.bullets.push(bullet);
     const data: onPlayerShootEvent = {
-      origin,
-      direction,
-      speed,
+      bullet: bullet.toJSON(),
     };
     this.socket.emit("player-shot", data);
   };
@@ -188,34 +204,38 @@ export class GameManager {
     const objects = this.getMoveable();
     objects.forEach((object) => {
       const vector = object.getNextVector();
+
+      // 境界判定
       if (!boundary.containsPoint(vector)) {
-        object.onHit({ type: "boundary", boundary });
+        object.onHit({ type: "boundary", debugInfo: boundary });
         return;
       }
+
+      // ユーザーはどこでも移動可能
       if (object instanceof Player || object instanceof User) {
         object.move(vector);
+        return;
       }
 
       // 銃弾の衝突判定
       if (object instanceof Bullet) {
-        const playerObjects = [
-          ...[...this.players.values()].map((p) => p.model),
-          user.hitBox,
-        ];
+        const bullet = object;
+        const players = [this.user!, ...this.players.values()]
+          .filter((p) => !p.isOwn(bullet))
+          .map((p) => p.getObject3D());
         const raycaster = new THREE.Raycaster();
-        const position = object.getPosition();
+        const position = bullet.getPosition();
         raycaster.set(position, vector);
-        const intersects = raycaster.intersectObjects(playerObjects, false);
+        const intersects = raycaster.intersectObjects(players);
         if (intersects.length === 0) {
-          object.move(vector);
+          bullet.move(vector);
         } else {
           intersects
             .map((e) => e.object.userData)
             .find((userData) => userData.playerId !== this.playerId);
           if (intersects.length > 0) {
-            object.onHit({
+            bullet.onHit({
               type: "intersects",
-
               debugInfo: {
                 name: intersects.map((e) => e.object.name).join("-"),
                 intersects,
@@ -227,18 +247,7 @@ export class GameManager {
     });
 
     // 操作しているプレイヤーの位置をサーバーに送信
-    this.socket.emit("player-move", {
-      position: {
-        x: this.camera.position.x,
-        y: this.camera.position.y,
-        z: this.camera.position.z,
-      },
-      rotation: {
-        x: this.camera.rotation.x,
-        y: this.camera.rotation.y,
-        z: this.camera.rotation.z,
-      },
-    });
+    this.socket.emit("player-move", { user: this.user!.toJSON() });
 
     // 弾丸の更新
     this.bullets = this.bullets.filter((bullet) => {
@@ -265,16 +274,16 @@ export class GameManager {
     new DebugUIFactoryImpl(this.camera).create();
   };
 
-  private getMoveable = (): Moveable[] => {
-    return [this.user!, ...this.players.values(), ...this.bullets];
+  private getMoveable = () => {
+    return [this.user!, ...this.players.values(), ...this.bullets] as const;
   };
 }
 
-const toVector = (position: Position) => {
+const toVector = (position: SerializedPosition) => {
   return new THREE.Vector3(position.x, position.y, position.z);
 };
 
-const toEuler = (rotation: Rotation) => {
+const toEuler = (rotation: SerializedRotation) => {
   return new THREE.Euler(rotation.x, rotation.y, rotation.z, "XYZ");
 };
 

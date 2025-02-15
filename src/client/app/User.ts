@@ -1,16 +1,20 @@
 import * as THREE from "three";
 import { PlayerMoveMents } from "./Player";
-import { Moveable } from "./Moveable";
+import { HitEvent, Model, Moveable, Serializable } from "./Models";
 import { getModel } from "./ModelLoader";
 import { Bullet } from "./Bullet";
+import { SerializedUser } from "../../types";
 
-export class User implements Moveable {
+export class User implements Model, Moveable, Serializable<SerializedUser> {
+  playerId: string;
+  health: number;
   camera: THREE.Camera;
   sensitivity: number; // マウス感度
   speed: number; // 移動速度
   yaw: number = 0; // 左右回転
   pitch: number = 0; // 上下回転
   pitchLimit: number = (Math.PI / 180) * 60; // 上下80度
+  bullets: Bullet[] = [];
 
   baseObject: THREE.Object3D; // カメラに追従するオブジェクト（相対座標を持つためのもの）
   hitBox: THREE.Mesh; // 当たり判定用
@@ -23,20 +27,20 @@ export class User implements Moveable {
   private bobSpeed: number = 10; // 揺れの速度
 
   constructor(
-    scene: THREE.Scene,
     camera: THREE.Camera,
     playerID: string,
     speed: number = 2,
     sensitivity: number = 0.003
   ) {
+    this.playerId = playerID;
     this.camera = camera;
     this.speed = speed;
     this.sensitivity = sensitivity;
+    this.health = 100;
 
     // **ベースオブジェクト（カメラの位置に追従する）**
     this.baseObject = new THREE.Object3D();
     this.baseObject.name = "fpsControllerBaseObject";
-    scene.add(this.baseObject);
 
     // **当たり判定用の Box を追加**
     const hitBoxGeometry = new THREE.BoxGeometry(0.5, 1.8, 0.5); // 幅・高さ・奥行き
@@ -54,6 +58,18 @@ export class User implements Moveable {
     this.gunModel = gun;
     this.baseObject.add(this.gunModel);
     this.gunModel.position.set(0.2, -0.1, -0.3);
+  }
+
+  getObject3D(): THREE.Object3D {
+    return this.baseObject;
+  }
+
+  getRotation(): THREE.Euler {
+    return this.baseObject.rotation;
+  }
+
+  destroy(scene: THREE.Scene): void {
+    scene.remove(this.baseObject);
   }
 
   handleMouseMove = (movementX: number, movementY: number) => {
@@ -138,20 +154,36 @@ export class User implements Moveable {
     this.baseObject.position.copy(vector);
   };
 
-  onHit(object: any): void {}
+  onHit(e: HitEvent): void {}
 
-  shoot(): [
-    bullet: Bullet,
-    origin: THREE.Vector3,
-    direction: THREE.Vector3,
-    speed: number
-  ] {
+  shoot(): Bullet {
     const direction = new THREE.Vector3(0, 0, -1)
       .applyQuaternion(this.camera.quaternion)
       .normalize();
     const speed = 5;
-    const bullet = new Bullet(this.camera.position, direction, speed);
-    const origin = this.camera.position.clone();
-    return [bullet, origin, direction, speed];
+    const bullet = new Bullet(this.camera.position, direction, speed, 10);
+    this.bullets.push(bullet);
+    return bullet;
+  }
+
+  isOwn = (bullet: Bullet) => {
+    return this.bullets.includes(bullet);
+  };
+
+  toJSON(): SerializedUser {
+    return {
+      id: this.playerId,
+      position: {
+        x: this.camera.position.x,
+        y: this.camera.position.y,
+        z: this.camera.position.z,
+      },
+      rotation: {
+        x: this.baseObject.rotation.x,
+        y: this.baseObject.rotation.y,
+        z: this.baseObject.rotation.z,
+      },
+      health: this.health,
+    };
   }
 }
